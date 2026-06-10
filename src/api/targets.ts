@@ -1,6 +1,9 @@
 import type { EngineClient } from "./client";
 import type {
   AddTargetResult,
+  CatalogEntry,
+  CatalogLookupResponse,
+  CatalogStatus,
   CropBox,
   DeleteResult,
   IndexStats,
@@ -11,7 +14,11 @@ import type {
 
 export interface AddTargetInput {
   imageFile: File;
-  objectId: string;
+  /** Provide EITHER objectId (legacy / direct) OR invno (preferred, engine
+   * resolves via the catalog cache). Sending both is only valid when they
+   * resolve to the same target. */
+  objectId?: string;
+  invno?: string;
   name?: string;
   refLabel?: string;
   crop?: CropBox;
@@ -40,9 +47,13 @@ export class TargetsApi {
   }
 
   async add(input: AddTargetInput): Promise<AddTargetResult> {
+    if (!input.objectId && !input.invno) {
+      throw new Error("add(): must provide invno or objectId");
+    }
     const form = new FormData();
     form.append("image", input.imageFile);
-    form.append("object_id", input.objectId);
+    if (input.objectId) form.append("object_id", input.objectId);
+    if (input.invno) form.append("invno", input.invno);
     if (input.name) form.append("name", input.name);
     if (input.refLabel) form.append("ref_label", input.refLabel);
     if (input.crop) {
@@ -52,6 +63,23 @@ export class TargetsApi {
       form.append("crop_h", String(input.crop.h));
     }
     return this.client.postMultipart<AddTargetResult>("/api/manage/targets", form);
+  }
+
+  async catalogLookup(q: string, limit = 20): Promise<CatalogLookupResponse> {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    return this.client.request<CatalogLookupResponse>(
+      `/api/manage/catalog/lookup?${params}`
+    );
+  }
+
+  async catalogGet(idOrInvno: string): Promise<CatalogEntry> {
+    return this.client.request<CatalogEntry>(
+      `/api/manage/catalog/${encodeURIComponent(idOrInvno)}`
+    );
+  }
+
+  async catalogStatus(): Promise<CatalogStatus> {
+    return this.client.request<CatalogStatus>("/api/manage/catalog/status");
   }
 
   async remove(targetId: string): Promise<DeleteResult> {

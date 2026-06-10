@@ -1,15 +1,16 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CatalogSearch } from "../components/CatalogSearch";
 import { useAddTarget } from "../hooks/useTargets";
+import type { CatalogEntry } from "../api/types";
 
 type Mode = "new" | "variant";
 
 export function AddPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<Mode>("new");
-  const [objectId, setObjectId] = useState("");
-  const [name, setName] = useState("");
+  const [mode, setMode] = useState<Mode>("variant");
+  const [picked, setPicked] = useState<CatalogEntry | null>(null);
   const [refLabel, setRefLabel] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -24,14 +25,18 @@ export function AddPage() {
     });
   };
 
+  const onPickEntry = (entry: CatalogEntry) => {
+    setPicked(entry);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !objectId.trim()) return;
+    if (!file || !picked || !picked.invno) return;
+    const label = mode === "variant" ? (refLabel.trim() || defaultRefLabel()) : undefined;
     const result = await add.mutateAsync({
       imageFile: file,
-      objectId: objectId.trim(),
-      name: name.trim() || undefined,
-      refLabel: mode === "variant" ? (refLabel.trim() || defaultRefLabel()) : undefined,
+      invno: picked.invno,
+      refLabel: label,
     });
     navigate(`/detail/${encodeURIComponent(result.target_id)}`);
   };
@@ -41,19 +46,77 @@ export function AddPage() {
       <div className="flex rounded-md border border-barnes-ink/20 overflow-hidden text-sm">
         <button
           type="button"
-          onClick={() => setMode("new")}
-          className={`flex-1 py-2.5 ${mode === "new" ? "bg-barnes-ink text-barnes-paper" : ""}`}
-        >
-          New object
-        </button>
-        <button
-          type="button"
           onClick={() => setMode("variant")}
           className={`flex-1 py-2.5 ${mode === "variant" ? "bg-barnes-ink text-barnes-paper" : ""}`}
         >
           Add variant
         </button>
+        <button
+          type="button"
+          onClick={() => setMode("new")}
+          className={`flex-1 py-2.5 ${mode === "new" ? "bg-barnes-ink text-barnes-paper" : ""}`}
+        >
+          New object
+        </button>
       </div>
+
+      {mode === "variant" ? (
+        <p className="text-xs text-barnes-ink/60">
+          Pick the artwork by inventory number (e.g. <code className="font-mono">A305</code>) or
+          title, then upload a gallery-angle photo. Existing object stays untouched; this lands
+          as a <code className="font-mono">__REF_</code> variant.
+        </p>
+      ) : (
+        <p className="text-xs text-barnes-ink/60">
+          New objects are unusual in the staff app — most adds are variants of existing catalog
+          entries. Use this when registering an object that doesn't have a catalog id yet.
+        </p>
+      )}
+
+      {!picked ? (
+        <div className="space-y-2">
+          <label className="text-xs font-medium uppercase tracking-wide text-barnes-ink/60">
+            Find object
+          </label>
+          <CatalogSearch onSelect={onPickEntry} />
+        </div>
+      ) : (
+        <div className="space-y-2 border border-barnes-ink/15 rounded-md p-3 bg-barnes-ink/5">
+          <div className="flex items-start gap-3">
+            {picked.cdn_url && (
+              <img
+                src={picked.cdn_url}
+                alt=""
+                className="w-20 h-20 object-cover rounded bg-white shrink-0"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-xs text-barnes-ink/60">{picked.invno}</span>
+                <span className="text-xs text-barnes-ink/40">id {picked.id}</span>
+              </div>
+              <div className="font-medium">{picked.title ?? "(untitled)"}</div>
+              <div className="text-xs text-barnes-ink/70">
+                {[picked.people, picked.classification, picked.culture]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+              {picked.locations && (
+                <div className="text-xs text-barnes-ink/50 truncate mt-1">
+                  {picked.locations}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPicked(null)}
+              className="text-xs text-barnes-ink/60 hover:text-barnes-ink underline shrink-0"
+            >
+              change
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="text-xs font-medium uppercase tracking-wide text-barnes-ink/60">
@@ -76,36 +139,6 @@ export function AddPage() {
         )}
       </div>
 
-      <div className="space-y-2">
-        <label className="text-xs font-medium uppercase tracking-wide text-barnes-ink/60">
-          Object ID
-        </label>
-        <input
-          className="input"
-          value={objectId}
-          onChange={(e) => setObjectId(e.target.value)}
-          placeholder="e.g. 4499"
-          required
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-        />
-      </div>
-
-      {mode === "new" && (
-        <div className="space-y-2">
-          <label className="text-xs font-medium uppercase tracking-wide text-barnes-ink/60">
-            Display name (optional)
-          </label>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Defaults to the object ID"
-          />
-        </div>
-      )}
-
       {mode === "variant" && (
         <div className="space-y-2">
           <label className="text-xs font-medium uppercase tracking-wide text-barnes-ink/60">
@@ -118,25 +151,38 @@ export function AddPage() {
             placeholder={defaultRefLabel()}
           />
           <p className="text-xs text-barnes-ink/50">
-            Stored as <code className="font-mono">{objectId || "{object_id}"}__REF_
-            {refLabel.trim() || defaultRefLabel()}</code>.
+            Stored as{" "}
+            <code className="font-mono">
+              {picked?.id ?? "{id}"}__REF_{refLabel.trim() || defaultRefLabel()}
+            </code>
+            .
           </p>
         </div>
       )}
 
       {add.error && (
-        <p className="text-sm text-red-700">
-          {(add.error as Error).message}
-        </p>
+        <p className="text-sm text-red-700">{(add.error as Error).message}</p>
       )}
 
       <button
         type="submit"
-        disabled={!file || !objectId.trim() || add.isPending}
+        disabled={!file || !picked || !picked.invno || add.isPending}
         className="btn-primary w-full"
       >
-        {add.isPending ? "Uploading…" : mode === "new" ? "Add object" : "Add variant"}
+        {add.isPending
+          ? "Uploading…"
+          : mode === "variant"
+          ? `Add variant for ${picked?.invno ?? "…"}`
+          : "Add object"}
       </button>
+
+      {mode === "new" && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+          New objects require a catalog entry that maps inv_no to an id. If
+          the object isn't in the catalog yet, get it added there first (TMS
+          / focus-collection.json) before adding here.
+        </p>
+      )}
     </form>
   );
 }

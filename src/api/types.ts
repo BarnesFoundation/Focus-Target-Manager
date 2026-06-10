@@ -92,3 +92,34 @@ export interface CropBox {
   w: number;
   h: number;
 }
+
+export interface CatalogEntry {
+  id: string;
+  invno: string | null;
+  title: string | null;
+  people: string | null;
+  classification: string | null;
+  culture: string | null;
+  locations: string | null;
+  display_date: string | null;
+  cdn_url: string | null;
+}
+
+export interface CatalogLookupResponse {
+  query: string;
+  limit: number;
+  count: number;
+  items: CatalogEntry[];
+}
+
+export interface CatalogStatus {
+  item_count: number;
+  invno_indexed: number;
+  cached_at: number;
+  age_sec: number | null;
+  ttl_sec: number;
+  stale: boolean;
+  source_url: string;
+  refreshing: boolean;
+  last_error: string | null;
+}
