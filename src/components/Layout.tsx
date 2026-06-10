@@ -1,10 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-const navItem = "block px-4 py-3 text-sm font-medium border-b border-barnes-ink/10 last:border-b-0";
-const navActive = "bg-barnes-ink/5 text-barnes-ink";
-const navIdle = "text-barnes-ink/70 hover:bg-barnes-ink/5";
-
 export function Layout() {
   const { account, oauthEnabled, signIn, signOut } = useAuth();
 
