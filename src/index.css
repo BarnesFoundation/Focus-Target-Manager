@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-barnes-accent;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-barnes-ink text-barnes-paper hover:bg-barnes-ink/90;
+  }
+  .btn-secondary {
+    @apply btn border border-barnes-ink/20 bg-transparent hover:bg-barnes-ink/5;
+  }
+  .input {
+    @apply w-full rounded-md border border-barnes-ink/20 bg-white px-3 py-2 text-sm;
+    @apply focus:border-barnes-accent focus:outline-none focus:ring-1 focus:ring-barnes-accent;
+  }
+}
