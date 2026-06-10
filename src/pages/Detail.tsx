@@ -1,11 +1,10 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { AuthImage } from "../components/AuthImage";
 import { useDeleteTarget, useTargetDetail, useTargetList } from "../hooks/useTargets";
 
 export function DetailPage() {
   const { targetId } = useParams<{ targetId: string }>();
   const navigate = useNavigate();
-  const { targets } = useAuth();
   const detail = useTargetDetail(targetId ?? null);
   const list = useTargetList();
   const del = useDeleteTarget();
@@ -41,10 +40,11 @@ export function DetailPage() {
         <p className="text-xs text-barnes-ink/60 font-mono">{d.target_id}</p>
       </header>
 
-      <img
-        src={targets.previewUrl(d.target_id)}
+      <AuthImage
+        targetId={d.target_id}
         alt={d.target_id}
         className="w-full max-h-96 object-contain border border-barnes-ink/10 rounded"
+        fallbackClassName="w-full h-72 bg-barnes-ink/5 border border-barnes-ink/10 rounded flex items-center justify-center"
       />
 
       <dl className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
