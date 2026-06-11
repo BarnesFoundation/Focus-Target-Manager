@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CatalogSearch } from "../components/CatalogSearch";
+import { PhotoCropper } from "../components/PhotoCropper";
 import { useAddTarget } from "../hooks/useTargets";
-import type { CatalogEntry } from "../api/types";
+import type { CatalogEntry, CropBox } from "../api/types";
 
 type Mode = "new" | "variant";
 
@@ -14,11 +15,15 @@ export function AddPage() {
   const [refLabel, setRefLabel] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [crop, setCrop] = useState<CropBox | null>(null);
+  const [showCropper, setShowCropper] = useState(true);
 
   const add = useAddTarget();
 
   const handleFile = (f: File | null) => {
     setFile(f);
+    setCrop(null);
+    setShowCropper(true);
     setPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return f ? URL.createObjectURL(f) : null;
@@ -37,6 +42,7 @@ export function AddPage() {
       imageFile: file,
       invno: picked.invno,
       refLabel: label,
+      crop: showCropper && crop ? crop : undefined,
     });
     navigate(`/detail/${encodeURIComponent(result.target_id)}`);
   };
@@ -130,12 +136,46 @@ export function AddPage() {
           onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
           className="block w-full text-sm"
         />
-        {preview && (
-          <img
-            src={preview}
-            alt="preview"
-            className="w-full max-h-80 object-contain border border-barnes-ink/10 rounded"
-          />
+        {preview && showCropper && (
+          <>
+            <PhotoCropper src={preview} onCropChange={setCrop} />
+            <div className="flex items-center justify-between text-xs text-barnes-ink/60">
+              <span>
+                Drag inside the box to move; drag the edges to resize. Server crops on upload.
+                {crop ? (
+                  <span className="ml-2 font-mono text-barnes-ink/50">
+                    {crop.w}×{crop.h} at ({crop.x}, {crop.y})
+                  </span>
+                ) : null}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCropper(false)}
+                className="underline hover:text-barnes-ink"
+              >
+                use full image
+              </button>
+            </div>
+          </>
+        )}
+        {preview && !showCropper && (
+          <>
+            <img
+              src={preview}
+              alt="preview"
+              className="w-full max-h-80 object-contain border border-barnes-ink/10 rounded"
+            />
+            <div className="flex items-center justify-between text-xs text-barnes-ink/60">
+              <span>Uploading full image as-is, no crop.</span>
+              <button
+                type="button"
+                onClick={() => setShowCropper(true)}
+                className="underline hover:text-barnes-ink"
+              >
+                crop instead
+              </button>
+            </div>
+          </>
         )}
       </div>
 
