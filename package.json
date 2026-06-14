@@ -1,7 +1,7 @@
 {
   "name": "focus-target-manager",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "Staff-facing UI for adding and managing image-recognition targets in the Focus Image Resolver engine. Mobile-first, Azure-AD-gated.",
   "scripts": {

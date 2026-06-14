@@ -1,10 +1,12 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AuthImage } from "../components/AuthImage";
+import { useLightbox } from "../components/Lightbox";
 import { useDeleteTarget, useTargetDetail, useTargetList } from "../hooks/useTargets";
 
 export function DetailPage() {
   const { targetId } = useParams<{ targetId: string }>();
   const navigate = useNavigate();
+  const lightbox = useLightbox();
   const detail = useTargetDetail(targetId ?? null);
   const list = useTargetList();
   const del = useDeleteTarget();
@@ -43,6 +45,10 @@ export function DetailPage() {
       <AuthImage
         path={`/api/manage/targets/${encodeURIComponent(d.target_id)}/preview.jpg`}
         alt={d.target_id}
+        onClick={() => lightbox.open(
+          { authPath: `/api/manage/targets/${encodeURIComponent(d.target_id)}/preview.jpg` },
+          d.target_id,
+        )}
         className="w-full max-h-96 object-contain border border-barnes-ink/10 rounded"
         fallbackClassName="w-full h-72 bg-barnes-ink/5 border border-barnes-ink/10 rounded flex items-center justify-center"
       />

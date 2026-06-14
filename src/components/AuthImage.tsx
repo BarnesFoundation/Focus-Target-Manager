@@ -11,6 +11,9 @@ interface Props {
   /** Optional fallback className when the preview is still loading or
    * unavailable (e.g. 401 in dev mode without a valid token). */
   fallbackClassName?: string;
+  /** When set, the loaded image becomes clickable (zoom cursor) and
+   * invokes this on click — used to open the lightbox. */
+  onClick?: () => void;
 }
 
 /**
@@ -22,7 +25,7 @@ interface Props {
  * (which carries the MSAL bearer), wraps them in a blob URL, and feeds that
  * to a regular <img>. The blob URL is revoked on unmount / targetId change.
  */
-export function AuthImage({ path, alt, className, fallbackClassName }: Props) {
+export function AuthImage({ path, alt, className, fallbackClassName, onClick }: Props) {
   const { client } = useAuth();
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,5 +61,12 @@ export function AuthImage({ path, alt, className, fallbackClassName }: Props) {
   if (!url) {
     return <div className={fallbackClassName ?? className} aria-busy="true" />;
   }
-  return <img src={url} alt={alt ?? ""} className={className} />;
+  return (
+    <img
+      src={url}
+      alt={alt ?? ""}
+      className={`${className ?? ""}${onClick ? " cursor-zoom-in" : ""}`}
+      onClick={onClick}
+    />
+  );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AuthImage } from "./AuthImage";
+import { useLightbox } from "./Lightbox";
 import { useAuth } from "../auth/AuthContext";
 import { useCastVote } from "../hooks/useDashboard";
 import type { BurstSummary, VoteLabel } from "../api/types";
@@ -13,6 +14,7 @@ const LABELS: { key: VoteLabel; label: string; tone: string }[] = [
 
 export function BurstCard({ burst }: { burst: BurstSummary }) {
   const { dashboard } = useAuth();
+  const lightbox = useLightbox();
   const cast = useCastVote();
   const [suggest, setSuggest] = useState(burst.vote?.suggest ?? "");
   const [activeLabel, setActiveLabel] = useState<VoteLabel | null>(
@@ -31,9 +33,11 @@ export function BurstCard({ burst }: { burst: BurstSummary }) {
     });
   };
 
+  const cat = burst.target_catalog;
+
   return (
     <div className="rounded-lg border border-barnes-ink/15 bg-white shadow-sm overflow-hidden">
-      <header className="px-3 py-2 border-b border-barnes-ink/10 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
+      <header className="px-3 py-1.5 border-b border-barnes-ink/10 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs">
         <span className={`px-2 py-0.5 rounded-full font-mono ${bucketTone(burst.bucket)}`}>
           {burst.bucket}
         </span>
@@ -50,7 +54,7 @@ export function BurstCard({ burst }: { burst: BurstSummary }) {
           </span>
         )}
         {isVoted && (
-          <span className={`ml-auto text-xs ${isFinished ? "text-emerald-700" : "text-amber-700"}`}>
+          <span className={`ml-auto ${isFinished ? "text-emerald-700" : "text-amber-700"}`}>
             ✔ {burst.vote!.label}
             {burst.vote!.suggest && ` → ${burst.vote!.suggest}`}
             {!isFinished && " (needs suggestion)"}
@@ -58,53 +62,60 @@ export function BurstCard({ burst }: { burst: BurstSummary }) {
         )}
       </header>
 
-      <div className="p-3 grid grid-cols-1 md:grid-cols-[300px_1fr] gap-3">
-        <div>
-          {burst.target_catalog?.cdn_url ? (
+      {/* Horizontal body: proposed target | query frames (fill width) | vote panel */}
+      <div className="flex items-start gap-3 p-3">
+        {/* proposed target — narrow */}
+        <div className="w-36 shrink-0">
+          {cat?.cdn_url ? (
             <figure className="text-center">
               <img
-                src={burst.target_catalog.cdn_url}
+                src={cat.cdn_url}
                 alt=""
                 loading="lazy"
-                className="w-full max-h-56 object-contain border-2 border-amber-500 bg-white rounded"
+                onClick={() => lightbox.open({ src: cat.cdn_url! }, cat.title ?? "")}
+                className="w-full max-h-36 object-contain border-2 border-amber-500 bg-white rounded cursor-zoom-in"
               />
-              <figcaption className="text-xs text-barnes-ink/70 mt-1">
-                <span className="font-mono">{burst.target_catalog.invno ?? burst.best_target ?? "—"}</span>
-                {burst.target_catalog.title && <> · {burst.target_catalog.title}</>}
-                {burst.target_catalog.locations && (
-                  <div className="text-[11px] text-barnes-ink/50 truncate" title={burst.target_catalog.locations}>
-                    {burst.target_catalog.locations}
+              <figcaption className="text-[11px] text-barnes-ink/70 mt-1 leading-tight">
+                <span className="font-mono">{cat.invno ?? burst.best_target ?? "—"}</span>
+                {cat.title && <div className="truncate" title={cat.title}>{cat.title}</div>}
+                {cat.locations && (
+                  <div className="text-barnes-ink/45 truncate" title={cat.locations}>
+                    {cat.locations}
                   </div>
                 )}
               </figcaption>
             </figure>
           ) : burst.best_target ? (
-            <div className="border-2 border-amber-500 rounded p-3 text-xs text-barnes-ink/60 bg-barnes-ink/5 text-center">
-              proposed target<br />
+            <div className="border-2 border-amber-500 rounded p-2 text-[11px] text-barnes-ink/60 bg-barnes-ink/5 text-center">
+              proposed<br />
               <span className="font-mono text-barnes-ink/80">{burst.best_target}</span>
-              <div className="text-[11px] text-barnes-ink/40 mt-1">no catalog enrichment</div>
             </div>
           ) : (
-            <div className="border border-dashed border-barnes-ink/20 rounded p-3 text-xs text-barnes-ink/40 text-center">
+            <div className="border border-dashed border-barnes-ink/20 rounded p-2 text-[11px] text-barnes-ink/40 text-center h-24 flex items-center justify-center">
               no near-miss target
             </div>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {burst.stems.map((stem) => (
-            <AuthImage
-              key={stem}
-              path={dashboard.burstFramePath(burst.bid, stem, burst.day)}
-              alt={stem}
-              className="w-32 h-32 object-cover rounded border border-barnes-ink/10"
-              fallbackClassName="w-32 h-32 rounded border border-barnes-ink/10 bg-barnes-ink/5"
-            />
-          ))}
-        </div>
-      </div>
 
-      <div className="px-3 py-2 border-t border-barnes-ink/10 flex flex-col md:flex-row md:items-center gap-2">
-        <div className="flex flex-wrap gap-1.5">
+        {/* query frames — fill the wide middle, wrap, click to zoom */}
+        <div className="flex-1 flex flex-wrap gap-2 content-start">
+          {burst.stems.map((stem) => {
+            const p = dashboard.burstFramePath(burst.bid, stem, burst.day);
+            return (
+              <AuthImage
+                key={stem}
+                path={p}
+                alt={stem}
+                onClick={() => lightbox.open({ authPath: p }, stem)}
+                className="w-28 h-28 object-cover rounded border border-barnes-ink/10"
+                fallbackClassName="w-28 h-28 rounded border border-barnes-ink/10 bg-barnes-ink/5"
+              />
+            );
+          })}
+        </div>
+
+        {/* vote panel — fixed right column, always at the same horizontal spot */}
+        <div className="w-48 shrink-0 flex flex-col gap-1.5">
           {LABELS.map(({ key, label, tone }) => {
             const on = activeLabel === key;
             return (
@@ -113,28 +124,28 @@ export function BurstCard({ burst }: { burst: BurstSummary }) {
                 type="button"
                 disabled={cast.isPending}
                 onClick={() => onVote(key)}
-                className={`text-xs px-2 py-1 rounded border ${on ? tone : "border-barnes-ink/20 text-barnes-ink/70 hover:bg-barnes-ink/5"}`}
+                className={`text-xs px-2 py-1.5 rounded border text-left ${on ? tone : "border-barnes-ink/20 text-barnes-ink/70 hover:bg-barnes-ink/5"}`}
               >
                 {label}
               </button>
             );
           })}
+          <input
+            type="text"
+            placeholder="suggest invno / target_id"
+            value={suggest}
+            onChange={(e) => setSuggest(e.target.value)}
+            onBlur={() => {
+              if (activeLabel === "wrong_artwork" && suggest.trim()) {
+                onVote("wrong_artwork");
+              }
+            }}
+            className="input text-xs"
+          />
+          {cast.error && (
+            <span className="text-[11px] text-red-700">{(cast.error as Error).message}</span>
+          )}
         </div>
-        <input
-          type="text"
-          placeholder="suggest invno or target_id (for wrong artwork)"
-          value={suggest}
-          onChange={(e) => setSuggest(e.target.value)}
-          onBlur={() => {
-            if (activeLabel === "wrong_artwork" && suggest.trim()) {
-              onVote("wrong_artwork");
-            }
-          }}
-          className="input md:max-w-xs text-xs"
-        />
-        {cast.error && (
-          <span className="text-xs text-red-700">{(cast.error as Error).message}</span>
-        )}
       </div>
     </div>
   );

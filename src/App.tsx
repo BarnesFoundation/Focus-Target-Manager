@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { AuthGate } from "./components/AuthGate";
 import { Layout } from "./components/Layout";
+import { LightboxProvider } from "./components/Lightbox";
 import { AddPage } from "./pages/Add";
 import { BrowsePage } from "./pages/Browse";
 import { CallbackPage } from "./pages/Callback";
@@ -25,23 +26,25 @@ export function App() {
     <BrowserRouter basename="/manage">
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Routes>
-            <Route path="/auth/callback" element={<CallbackPage />} />
-            <Route
-              path="/"
-              element={
-                <AuthGate>
-                  <Layout />
-                </AuthGate>
-              }
-            >
-              <Route index element={<BrowsePage />} />
-              <Route path="add" element={<AddPage />} />
-              <Route path="detail/:targetId" element={<DetailPage />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="stats" element={<StatsPage />} />
-            </Route>
-          </Routes>
+          <LightboxProvider>
+            <Routes>
+              <Route path="/auth/callback" element={<CallbackPage />} />
+              <Route
+                path="/"
+                element={
+                  <AuthGate>
+                    <Layout />
+                  </AuthGate>
+                }
+              >
+                <Route index element={<BrowsePage />} />
+                <Route path="add" element={<AddPage />} />
+                <Route path="detail/:targetId" element={<DetailPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="stats" element={<StatsPage />} />
+              </Route>
+            </Routes>
+          </LightboxProvider>
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>
