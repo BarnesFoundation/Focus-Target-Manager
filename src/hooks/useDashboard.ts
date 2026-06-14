@@ -3,10 +3,12 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from "@tanstack/react-query";
 
 import { useAuth } from "../auth/AuthContext";
 import type { BurstListParams, CastVoteInput } from "../api/dashboard";
+import type { BurstListPage } from "../api/types";
 
 export function useDashboardStats(start: string, end: string) {
   const { dashboard } = useAuth();
@@ -49,14 +51,36 @@ export function useCastVote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CastVoteInput) => dashboard.castVote(input),
-    onSuccess: () => {
+    onSuccess: (resp, input) => {
       qc.invalidateQueries({ queryKey: ["dashboard", "stats"] });
       qc.invalidateQueries({ queryKey: ["dashboard", "buckets"] });
-      // NOTE: deliberately do NOT invalidate the bursts infinite query here.
-      // With hide-already-voted on, invalidation would yank the just-voted
-      // card out from under the operator mid-scroll and reflow the list.
-      // The card updates its own header locally; the list re-syncs on the
-      // next filter/range change or manual refresh.
+
+      // Hide-already-voted: a FINISHED vote should make the card vanish from
+      // any hide_voted view — but surgically, by pruning just that one burst
+      // from the cached pages in place. We do NOT invalidate/refetch the
+      // bursts query (that would reflow the whole list under the operator's
+      // cursor mid-scroll). An UNFINISHED vote (wrong_artwork with no
+      // suggestion) is left in place so it re-surfaces for round 2.
+      if (!resp.is_finished) return;
+
+      qc.getQueryCache()
+        .findAll({ queryKey: ["dashboard", "bursts"] })
+        .forEach((q) => {
+          const params = q.queryKey[2] as { hide_voted?: boolean } | undefined;
+          if (!params?.hide_voted) return; // only prune hide-voted views
+          qc.setQueryData<InfiniteData<BurstListPage>>(q.queryKey, (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                items: page.items.filter(
+                  (it) => !(it.bid === input.bid && it.day === input.day)
+                ),
+              })),
+            };
+          });
+        });
     },
   });
 }
