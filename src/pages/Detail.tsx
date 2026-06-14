@@ -41,7 +41,7 @@ export function DetailPage() {
       </header>
 
       <AuthImage
-        targetId={d.target_id}
+        path={`/api/manage/targets/${encodeURIComponent(d.target_id)}/preview.jpg`}
         alt={d.target_id}
         className="w-full max-h-96 object-contain border border-barnes-ink/10 rounded"
         fallbackClassName="w-full h-72 bg-barnes-ink/5 border border-barnes-ink/10 rounded flex items-center justify-center"

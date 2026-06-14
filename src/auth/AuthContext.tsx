@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { AccountInfo } from "@azure/msal-browser";
 
 import { EngineClient } from "../api/client";
+import { DashboardApi } from "../api/dashboard";
 import { TargetsApi } from "../api/targets";
 import { MsalTokenSource, ensureInitialized, loginRequest, msalConfigured, msalInstance } from "./msal";
 import { NullTokenSource, type TokenSource } from "./tokenSource";
@@ -13,6 +14,7 @@ export interface AuthState {
   signOut: () => Promise<void>;
   client: EngineClient;
   targets: TargetsApi;
+  dashboard: DashboardApi;
   oauthEnabled: boolean;
 }
 
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [tokenSource]
   );
   const targets = useMemo(() => new TargetsApi(client), [client]);
+  const dashboard = useMemo(() => new DashboardApi(client), [client]);
 
   const value: AuthState = {
     ready,
@@ -55,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     oauthEnabled: msalConfigured,
     client,
     targets,
+    dashboard,
     async signIn() {
       if (!msalConfigured) return;
       await msalInstance.loginRedirect(loginRequest);

@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import { AddPage } from "./pages/Add";
 import { BrowsePage } from "./pages/Browse";
 import { CallbackPage } from "./pages/Callback";
+import { DashboardPage } from "./pages/Dashboard";
 import { DetailPage } from "./pages/Detail";
 import { StatsPage } from "./pages/Stats";
 
@@ -37,6 +38,7 @@ export function App() {
               <Route index element={<BrowsePage />} />
               <Route path="add" element={<AddPage />} />
               <Route path="detail/:targetId" element={<DetailPage />} />
+              <Route path="dashboard" element={<DashboardPage />} />
               <Route path="stats" element={<StatsPage />} />
             </Route>
           </Routes>

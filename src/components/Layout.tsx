@@ -34,6 +34,7 @@ export function Layout() {
           {[
             { to: "/", label: "Browse" },
             { to: "/add", label: "Add" },
+            { to: "/dashboard", label: "Dashboard" },
             { to: "/stats", label: "Stats" },
           ].map((item) => (
             <NavLink

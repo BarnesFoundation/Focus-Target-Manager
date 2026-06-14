@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 
 interface Props {
-  /** Engine target_id whose preview.jpg should render. */
-  targetId: string;
+  /** Engine API path that requires bearer auth, e.g.
+   * `/api/manage/targets/4499/preview.jpg` or
+   * `/api/manage/dashboard/bursts/{bid}/frame/{stem}.jpg?day=2026-06-13`. */
+  path: string;
   alt?: string;
   className?: string;
   /** Optional fallback className when the preview is still loading or
@@ -20,7 +22,7 @@ interface Props {
  * (which carries the MSAL bearer), wraps them in a blob URL, and feeds that
  * to a regular <img>. The blob URL is revoked on unmount / targetId change.
  */
-export function AuthImage({ targetId, alt, className, fallbackClassName }: Props) {
+export function AuthImage({ path, alt, className, fallbackClassName }: Props) {
   const { client } = useAuth();
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +34,7 @@ export function AuthImage({ targetId, alt, className, fallbackClassName }: Props
     setError(null);
     (async () => {
       try {
-        const blob = await client.request<Blob>(
-          `/api/manage/targets/${encodeURIComponent(targetId)}/preview.jpg`
-        );
+        const blob = await client.request<Blob>(path);
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
@@ -46,7 +46,7 @@ export function AuthImage({ targetId, alt, className, fallbackClassName }: Props
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [targetId, client]);
+  }, [path, client]);
 
   if (error) {
     return (

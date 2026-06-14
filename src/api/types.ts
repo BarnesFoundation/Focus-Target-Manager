@@ -123,3 +123,98 @@ export interface CatalogStatus {
   refreshing: boolean;
   last_error: string | null;
 }
+
+// --- Accuracy dashboard (engine v0.8+) -------------------------------------
+
+export type VoteLabel =
+  | "non_attempt"
+  | "false_negative"
+  | "true_negative"
+  | "wrong_artwork";
+
+export interface Vote {
+  label: VoteLabel;
+  suggest: string;
+  voter_upn: string;
+  is_finished: boolean;
+  ts: number;
+}
+
+export interface BurstTargetCatalog {
+  id: string;
+  invno: string | null;
+  title: string | null;
+  people: string | null;
+  classification: string | null;
+  locations: string | null;
+  cdn_url: string | null;
+}
+
+export interface BurstSummary {
+  bid: string;
+  day: string;
+  frame_count: number;
+  ts_first: number;
+  ts_last: number;
+  stems: string[];
+  matched: boolean;
+  modal_matched_target: string | null;
+  bucket: string;
+  top1_cos: number | null;
+  best_target: string | null;
+  consensus_count: number;
+  best_mean_score: number;
+  best_inliers: number;
+  target_catalog: BurstTargetCatalog | null;
+  vote: Vote | null;
+}
+
+export interface BurstDetail extends BurstSummary {
+  frames: {
+    stem: string;
+    ts: number;
+    matched: string | null;
+    score: number | null;
+    query_time_ms: number | null;
+    endpoint: string | null;
+  }[];
+  per_frame_debug?: Array<Record<string, unknown>>;
+}
+
+export interface BurstListPage {
+  range: { start: string; end: string };
+  filter: { bucket: string | null; show_matched: boolean; hide_voted: boolean };
+  pagination: { page: number; limit: number; total: number; pages: number };
+  items: BurstSummary[];
+}
+
+export interface DashboardStats {
+  range: { start: string; end: string };
+  totals: { bursts: number; matched: number; failed: number; frames: number };
+  votes: {
+    total: number;
+    by_label: Record<VoteLabel, number>;
+    non_attempts: number;
+    finished_recoverable: number;
+    progress_pct: number;
+    voted_failed: number;
+  };
+  accuracy: {
+    raw_rate: number;
+    intent_adjusted_rate: number;
+    arithmetic_ceiling: number;
+    ceiling_caveat: string;
+  };
+  buckets: Record<string, number>;
+}
+
+export interface BucketCount {
+  bucket: string;
+  count: number;
+}
+
+export interface BucketsResponse {
+  range: { start: string; end: string };
+  buckets: BucketCount[];
+  known_order: string[];
+}
