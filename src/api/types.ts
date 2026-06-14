@@ -218,3 +218,24 @@ export interface BucketsResponse {
   buckets: BucketCount[];
   known_order: string[];
 }
+
+export interface ReplayDayStat {
+  day: string;
+  failed_frames: number;
+  frames_processed: number;
+  already_done: number;
+  out_path: string;
+  elapsed_sec: number;
+}
+
+export interface ReplayJob {
+  job_id: string;
+  status: "started" | "running" | "succeeded" | "failed";
+  range?: { start: string; end: string };
+  days: string[];
+  done_days?: string[];
+  per_day?: ReplayDayStat[];
+  started_at?: number;
+  finished_at?: number | null;
+  error?: string | null;
+}

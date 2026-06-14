@@ -4,6 +4,7 @@ import type {
   BurstListPage,
   BucketsResponse,
   DashboardStats,
+  ReplayJob,
   Vote,
   VoteLabel,
 } from "./types";
@@ -74,6 +75,20 @@ export class DashboardApi {
     const params = new URLSearchParams({ start, end });
     return this.client.request<BucketsResponse>(
       `/api/manage/dashboard/buckets?${params}`
+    );
+  }
+
+  async triggerReplay(start: string, end: string, topKDebug = 30): Promise<ReplayJob> {
+    const params = new URLSearchParams({ start, end, top_k_debug: String(topKDebug) });
+    return this.client.request<ReplayJob>(
+      `/api/manage/dashboard/replay?${params}`,
+      { method: "POST" }
+    );
+  }
+
+  async replayStatus(jobId: string): Promise<ReplayJob> {
+    return this.client.request<ReplayJob>(
+      `/api/manage/dashboard/replay/${encodeURIComponent(jobId)}`
     );
   }
 

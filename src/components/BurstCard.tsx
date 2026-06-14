@@ -114,27 +114,35 @@ export function BurstCard({ burst }: { burst: BurstSummary }) {
           })}
         </div>
 
-        {/* vote panel — fixed right column, always at the same horizontal spot */}
-        <div className="w-48 shrink-0 flex flex-col gap-1.5">
-          {LABELS.map(({ key, label, tone }) => {
-            const on = activeLabel === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                disabled={cast.isPending}
-                onClick={() => onVote(key)}
-                className={`text-xs px-2 py-1.5 rounded border text-left ${on ? tone : "border-barnes-ink/20 text-barnes-ink/70 hover:bg-barnes-ink/5"}`}
-              >
-                {label}
-              </button>
-            );
-          })}
+        {/* vote panel — fixed right column, 2-col button grid to keep it short */}
+        <div className="w-64 shrink-0 flex flex-col gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
+            {LABELS.map(({ key, label, tone }) => {
+              const on = activeLabel === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={cast.isPending}
+                  onClick={() => onVote(key)}
+                  className={`text-xs px-2 py-1.5 rounded border text-left leading-tight ${on ? tone : "border-barnes-ink/20 text-barnes-ink/70 hover:bg-barnes-ink/5"}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <input
             type="text"
-            placeholder="suggest invno / target_id"
+            placeholder="invno / target_id — Enter = wrong artwork"
             value={suggest}
             onChange={(e) => setSuggest(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && suggest.trim()) {
+                e.preventDefault();
+                onVote("wrong_artwork");
+              }
+            }}
             onBlur={() => {
               if (activeLabel === "wrong_artwork" && suggest.trim()) {
                 onVote("wrong_artwork");

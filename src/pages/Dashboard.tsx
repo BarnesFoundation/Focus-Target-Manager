@@ -1,16 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BurstCard } from "../components/BurstCard";
 import { StatsPanel } from "../components/StatsPanel";
 import {
   useDashboardBuckets,
-  useDashboardBursts,
   useDashboardStats,
+  useInfiniteBursts,
+  useReplayStatus,
+  useTriggerReplay,
 } from "../hooks/useDashboard";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
-
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -22,27 +23,55 @@ export function DashboardPage() {
   const [end, setEnd] = useState(todayIso());
   const [bucket, setBucket] = useState<string | null>(null);
   const [hideVoted, setHideVoted] = useState(true);
-  const [page, setPage] = useState(1);
-  const limit = 25;
+  const [replayJobId, setReplayJobId] = useState<string | null>(null);
 
   const statsQ = useDashboardStats(start, end);
   const bucketsQ = useDashboardBuckets(start, end);
-  const burstsQ = useDashboardBursts({
-    start, end, bucket, hide_voted: hideVoted, page, limit,
+  const burstsQ = useInfiniteBursts({
+    start, end, bucket, hide_voted: hideVoted, limit: 25,
   });
+  const triggerReplay = useTriggerReplay();
+  const replayQ = useReplayStatus(replayJobId);
 
-  const totalPages = burstsQ.data?.pagination.pages ?? 0;
-  const items = burstsQ.data?.items ?? [];
+  const items = useMemo(
+    () => burstsQ.data?.pages.flatMap((p) => p.items) ?? [],
+    [burstsQ.data]
+  );
+  const total = burstsQ.data?.pages[0]?.pagination.total ?? 0;
 
-  const setRange = (s: string, e: string) => {
-    setStart(s); setEnd(e); setPage(1);
+  const setRange = (s: string, e: string) => { setStart(s); setEnd(e); };
+
+  // Infinite-scroll sentinel.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && burstsQ.hasNextPage && !burstsQ.isFetchingNextPage) {
+          burstsQ.fetchNextPage();
+        }
+      },
+      { rootMargin: "800px 0px" } // prefetch well before the sentinel is visible
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [burstsQ.hasNextPage, burstsQ.isFetchingNextPage, burstsQ.fetchNextPage]);
+
+  const onRunChecker = async () => {
+    const job = await triggerReplay.mutateAsync({ start, end });
+    setReplayJobId(job.job_id);
   };
 
+  const replayBusy =
+    triggerReplay.isPending ||
+    (!!replayQ.data && replayQ.data.status !== "succeeded" && replayQ.data.status !== "failed");
+
   const bucketChips = useMemo(() => {
-    const items = bucketsQ.data?.buckets ?? [];
+    const list = bucketsQ.data?.buckets ?? [];
     return [
-      { bucket: null as string | null, count: items.reduce((a, b) => a + b.count, 0) },
-      ...items.map((b) => ({ bucket: b.bucket, count: b.count })),
+      { bucket: null as string | null, count: list.reduce((a, b) => a + b.count, 0) },
+      ...list.map((b) => ({ bucket: b.bucket, count: b.count })),
     ];
   }, [bucketsQ.data]);
 
@@ -56,16 +85,34 @@ export function DashboardPage() {
           <Quick label="Last 30d" onClick={() => setRange(daysAgo(29), todayIso())} />
         </div>
         <div className="flex flex-wrap items-end gap-3 text-sm">
-          <DateInput label="Start" value={start} onChange={(v) => { setStart(v); setPage(1); }} />
-          <DateInput label="End" value={end} onChange={(v) => { setEnd(v); setPage(1); }} />
+          <DateInput label="Start" value={start} onChange={setStart} />
+          <DateInput label="End" value={end} onChange={setEnd} />
           <label className="flex items-center gap-2 text-xs">
             <input
               type="checkbox"
               checked={hideVoted}
-              onChange={(e) => { setHideVoted(e.target.checked); setPage(1); }}
+              onChange={(e) => setHideVoted(e.target.checked)}
             />
             Hide already-voted
           </label>
+          <div className="ml-auto flex items-center gap-2">
+            {replayQ.data && (
+              <span className="text-xs text-barnes-ink/60">
+                checker: {replayQ.data.status}
+                {replayQ.data.done_days && replayQ.data.days &&
+                  ` (${replayQ.data.done_days.length}/${replayQ.data.days.length} days)`}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onRunChecker}
+              disabled={replayBusy}
+              className="btn-secondary text-xs"
+              title="Re-run the near-miss funnel replay for the selected range so failed bursts get a bucket + proposed target. The cron job lags one day."
+            >
+              {replayBusy ? "Running near-miss checker…" : "Run near-miss checker"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -79,7 +126,7 @@ export function DashboardPage() {
               <button
                 key={b.bucket ?? "__all__"}
                 type="button"
-                onClick={() => { setBucket(b.bucket); setPage(1); }}
+                onClick={() => setBucket(b.bucket)}
                 className={`px-2.5 py-1 rounded-full border ${
                   active
                     ? "bg-barnes-ink text-barnes-paper border-barnes-ink"
@@ -102,7 +149,12 @@ export function DashboardPage() {
         {!burstsQ.isLoading && items.length === 0 && (
           <p className="text-sm text-barnes-ink/60">
             No failed bursts in this view.
-            {hideVoted && " (Toggle “Hide already-voted” off to include adjudicated ones.)"}
+            {hideVoted && " (Everything here is adjudicated — toggle “Hide already-voted” off to review decisions.)"}
+          </p>
+        )}
+        {items.length > 0 && (
+          <p className="text-xs text-barnes-ink/40">
+            showing {items.length} of {total} {hideVoted ? "un-adjudicated " : ""}bursts
           </p>
         )}
 
@@ -112,33 +164,13 @@ export function DashboardPage() {
           ))}
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-3 text-xs">
-            <button
-              type="button"
-              disabled={page <= 1 || burstsQ.isLoading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="btn-secondary"
-            >
-              ← prev
-            </button>
-            <span className="text-barnes-ink/70">
-              page {page} of {totalPages}
-              {burstsQ.data && (
-                <span className="text-barnes-ink/40 ml-2">
-                  ({burstsQ.data.pagination.total} bursts)
-                </span>
-              )}
-            </span>
-            <button
-              type="button"
-              disabled={page >= totalPages || burstsQ.isLoading}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="btn-secondary"
-            >
-              next →
-            </button>
-          </div>
+        {/* infinite-scroll sentinel */}
+        <div ref={sentinelRef} className="h-8" />
+        {burstsQ.isFetchingNextPage && (
+          <p className="text-center text-sm text-barnes-ink/50 py-2">Loading more…</p>
+        )}
+        {!burstsQ.hasNextPage && items.length > 0 && (
+          <p className="text-center text-xs text-barnes-ink/40 py-2">— end of queue —</p>
         )}
       </section>
     </div>
@@ -149,12 +181,7 @@ function DateInput({ label, value, onChange }: { label: string; value: string; o
   return (
     <label className="flex flex-col">
       <span className="text-xs text-barnes-ink/60 mb-1">{label}</span>
-      <input
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="input"
-      />
+      <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="input" />
     </label>
   );
 }
