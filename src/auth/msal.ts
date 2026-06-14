@@ -1,4 +1,5 @@
 import {
+  InteractionRequiredAuthError,
   PublicClientApplication,
   type AccountInfo,
   type Configuration,
@@ -56,16 +57,26 @@ export async function ensureInitialized(): Promise<void> {
 }
 
 export class MsalTokenSource implements TokenSource {
-  async getToken(): Promise<string | null> {
+  async getToken(forceRefresh = false): Promise<string | null> {
     const account = msalInstance.getActiveAccount();
     if (!account) return null;
-    const silentReq: SilentRequest = { scopes, account };
+    const silentReq: SilentRequest = { scopes, account, forceRefresh };
     try {
       const result = await msalInstance.acquireTokenSilent(silentReq);
       return result.idToken || result.accessToken || null;
-    } catch {
-      // Caller should redirect to login; surfaced as 401 from engine.
+    } catch (e) {
+      // InteractionRequiredAuthError = refresh token can't silently renew
+      // (expired / revoked). Return null; the engine client will call
+      // reauth() to recover interactively.
+      if (e instanceof InteractionRequiredAuthError) return null;
       return null;
     }
+  }
+
+  async reauth(): Promise<void> {
+    // Interactive renewal. Redirects to Microsoft and back to the
+    // callback; the in-progress page state is lost but every vote cast
+    // before the token died was already persisted server-side.
+    await msalInstance.acquireTokenRedirect({ scopes });
   }
 }

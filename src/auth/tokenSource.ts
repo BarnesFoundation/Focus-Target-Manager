@@ -3,7 +3,14 @@
 // three engine auth modes.
 
 export interface TokenSource {
-  getToken(): Promise<string | null>;
+  /** Return a bearer token. `forceRefresh` asks the source to bypass any
+   * cached token and mint a fresh one (used by the client on a 401 to
+   * recover from a token that aged out mid-session). */
+  getToken(forceRefresh?: boolean): Promise<string | null>;
+  /** Optional interactive re-auth (may navigate away). Called when even a
+   * forced refresh can't produce a valid token — e.g. the refresh token
+   * itself expired. No-op sources omit it. */
+  reauth?(): Promise<void>;
 }
 
 export const NullTokenSource: TokenSource = {
